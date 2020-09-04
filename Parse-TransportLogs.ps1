@@ -5,24 +5,13 @@
 
 .DESCRIPTION
   Find out which machines are sending SMTP messages to your Exchange receive connectors.
-  I like to pull SMTP transport logs from all Exchange Servers in use to a single local folder for parsing instead of running this against the live logs.
-  Only reads in log entries that have the action "Queued" in the line, since a single SMTP transaction can generate many lines in the logs.
+  I like to pull SMTP transport logs from all Exchange Servers to a single local folder for parsing instead
+  of running this against the live logs. Only reads in log entries that have the action "Queued" in the line, 
+  because a single SMTP transaction can generate many lines in the logs.
 .NOTES
-  Credits : Initial concept and the key "Convert-FromCsv" line was inspired by 
-            Chris Lehr's blog at http://blog.chrislehr.com/2015/07/parse-transportlogs-which-ips-on-my.html
-.EXAMPLE
-  .\Parse-TransportLogs.ps1
-
-  Description
-	-----------
-	Runs script with default values.
+  Credits : Initial concept was inspired by Chris Lehr's blog at 
+  http://blog.chrislehr.com/2015/07/parse-transportlogs-which-ips-on-my.html
 #>
-
-function GetSubject {
-  param ([string]$MessageID)
-  # WIP: Worth moving this to its own reusable function?
-  Get-Messagetrackinglog -MessageID $MessageID
-}
 
 Set-ExecutionPolicy RemoteSigned
 $ExchangeCredential = Get-Credential -Message "Please enter credentials to connect to your Exchange Server. `nThis will be used to pull message subject lines from the tracking logs."
@@ -31,7 +20,7 @@ $ExchangeSession = New-PSSession -ConfigurationName Microsoft.Exchange -Connecti
 Import-PSSession $ExchangeSession -DisableNameChecking
 
 $SMTPLogPath = Read-Host "`nWhat is the path of the folder containing your SMTP transport logs?"
-$Days = Read-Host "How many days of logs do you want to inspect? (24 hour spans from the current system time.) Enter 0 or blank the parse them all."
+$Days = Read-Host "How many days of logs do you want to inspect? (24 hour spans from the current system time.) Enter 0 or blank to parse all logs in the folder."
 Write-Output "Reading in source SMTP log files from $SMTPLogPath and parsing for queued messages being sent."
 $FilteredLogs = (Select-String $SMTPLogPath\*.log -pattern "Queued").Line
 
@@ -69,5 +58,6 @@ foreach ($item in $TestSet) {
 
 Remove-PSSession $ExchangeSession.Id
 
+Write-Output "Showing $Days days of results:"
 $Summary = $TestSet | Group-Object -Property Hostname,IPAddress,Subject -NoElement | Sort-Object -Property @{Expression={$_.Count}; Descending=$true}, @{Expression={$_.Subject}; Descending=$true} -Unique
 $Summary | Format-Table -AutoSize
